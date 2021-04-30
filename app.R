@@ -13,6 +13,7 @@ forma_venta <- read.csv(file="Base de datos/FORM_VENTA.csv")
 variables <- read.csv(file="Base de datos/Descripcion de variables.csv")
 entidad <- read.csv(file = "Base de datos/ENTIDAD.csv")
 polizas <- read.csv(file="Base de datos/polizas_recodificadas.csv")
+sinisiestros <- read.csv(file="Base de datos/siniestros_recodificadas.csv")
 mod_pol <- read.csv(file="Base de datos/MOD_POL.csv")
 status_poliza <- read.csv(file="Base de datos/STATUS_POL.csv")
 status_siniestro <- read.csv(file="Base de datos/STATUS_SIN.csv")
@@ -36,6 +37,7 @@ polizas$suma <- sum(polizas$Doble_Indemnización_por_Muerte_Accidental,polizas$F
                     )
 
 polizas$SEXO <- as.factor(polizas$SEXO)   
+siniestros$SEXO <- as.factor(siniestros$SEXO)
 
 # Declaración de funciones ------------------------------------------------
 skewness=function(x) {
@@ -57,22 +59,22 @@ kurtosis=function(x) {
 resumen <- function(dato,nombre){
   sumario <- as.data.frame(cbind(
     nombre,
-    min(dato, na.rm=TRUE),
-    quantile(dato,0.25, na.rm=TRUE),
-    median(dato, na.rm=TRUE),
-    mean(dato, na.rm=TRUE),
-    mean(dato,trim=5/100, na.rm=TRUE),
-    quantile(dato,0.75, na.rm=TRUE),
-    max(dato, na.rm=TRUE),
-    length(dato),
-    IQR(dato, na.rm=TRUE),
-    sd(dato),
-    var(dato),
-    skewness(dato),
-    kurtosis(dato)
+    round(min(dato, na.rm=TRUE),2),
+    round(quantile(dato,0.25, na.rm=TRUE),2),
+    round(median(dato, na.rm=TRUE),2),
+    round(mean(dato, na.rm=TRUE),2),
+    round(mean(dato,trim=5/100, na.rm=TRUE),2),
+    round(quantile(dato,0.75, na.rm=TRUE),2),
+    round(max(dato, na.rm=TRUE),2),
+    round(length(dato),2),
+    round(IQR(dato, na.rm=TRUE),2),
+    round(sd(dato),2),
+    round(var(dato),2),
+    round(skewness(dato),2),
+    round(kurtosis(dato),2)
   ))
-  names(sumario) <- c("Variable","Mínimo","Quartil 1","Mediana","Media","Media restringida","Quartil 3","Máximo","Datos","Rango Intercuartilico",
-                      "Desviación Estándar","Varianza","Asimetría","Curtosis")
+  names(sumario) <- c("Variable","Minimo","Quartil 1","Mediana","Media","Media restringida","Quartil 3","Maximo","Datos","Rango Intercuartilico",
+                      "Desviacion Estandar","Varianza","Asimetria","Curtosis")
   row.names(sumario) <- nombre
   return(sumario)
   
@@ -203,10 +205,107 @@ resumenall <- function(matrix){
                     x$Total_Suma_Asegurada <- sumprimas2
                     x
                     })
-                    
+    datos2 <- reactive ({  
+      # Filtros -----------------------------------------------------------------
+      
+      a <- ifelse(input$venta == "Todas", "filter()" , "filter(FORM_VENTA == input$venta2)")
+      b <- ifelse(input$status == "Todas",  "filter()",  "filter(STATUS_POL == input$status2)")
+      f <- ifelse(input$statuspago == "Todas",  "filter()",  "filter(STATUS_SIN == input$statuspago)")
+      c <-  ifelse(input$tipo == "Todas", "filter()", "filter(MOD_POL == input$tipo2)")
+      d <- ifelse(input$entidad == "Todas", "filter()", "filter(ENTIDAD == input$entidad2)")
+      e <- ifelse(input$genero2 == "Ambos", "filter()", ifelse(input$genero2 == "Hombres",  "filter(SEXO == 'M')", "filter(SEXO == 'F')"))
+      s <- c()     
+      
+      nomm <- function(numero){
+        s <- c()
+        s2 <- c()
+        for (i in 1:numero) {
+          r <- input$Beneficio2[i]
+          r <- as.array(r)
+          s <- paste(s," %>% filter(",r,"> 0)",sep = "")
+        }
+        s <- paste(s,sep="")
+        return(s)
+      }
+      
+      nomm2 <- function(numero){
+        s <- c()
+        s2 <- c()
+        for (i in 1:numero) {
+          r <- input$Beneficio2[i]
+          r <- as.array(r)
+          s <- paste(s,r,sep=",")
+          
+        }
+        s <- paste(" %>% select(1:9",s,",19)",sep="")
+        return(s)
+      }
+      
+      letrero <-  ifelse(input$Beneficio2[1] == "Todas","x %>% filter()",
+                         paste('x',nomm2(dim(as.array(input$Beneficio2))),nomm(dim(as.array(input$Beneficio2))),sep=''))
+      
+      
+      filtros <- paste("siniestros",a,b,c,d,e,f,sep = " %>% ")
+      x <- (eval(parse(text=filtros)))
+      x <- (eval(parse(text=letrero)))
+      x <- as.data.frame(x)
+      x <- as.data.frame(x)
+      
+      
+      graficar <- function(){
+        for (i in 10:18) {
+          f <- paste("+x[,",i,"]", sep = "")
+          s <- paste(s,f,sep="")
+        }
+        return(s)
+      }
+      
+      graficar3 <- function(numero){
+        for (i in 1:numero) {
+          r <- 10+i
+          f <- paste("+x[,input$Beneficio2[",i,"]]", sep = "")
+          s <- paste(s,f,sep="")
+        }
+        s <- paste("0",s,sep="")
+        return(s)
+      }
+      
+      graficas <-  ifelse(input$Beneficio2=="Todas",graficar(),
+                          graficar3(dim(as.array(input$Beneficio2))))
+      
+      sumprimas <- as.numeric(eval(parse(text=graficas)))
+      sumprimas <- sumprimas
+      x$Total_siniestro <- sumprimas
+
+
+      x
+    })
+    resumen <- reactive({
+      x <- as.data.frame(datos())
+      x <- x %>% 
+        select(-c("X","MOD_POL","STATUS_POL","ENTIDAD","FORM_VENTA","SUBT_SEG","P_E_DCP","S_F_ADMON",
+                  "VENCIMIENTO","RESCATE","DIVIDENDO","SEXO"))
+      table <- resumenall(x)
+      table
+    })
+    resumen2 <- reactive({
+      x <- as.data.frame(datos2())
+      x <- x %>% 
+        select(-c("MOD_POL","STATUS_POL","ENTIDAD","FORM_VENTA","SUBT_SEG","STATUS_SIN","ENT_OCURSIN",
+                  "SEXO"))
+      table <- resumenall(x)
+      table
+    })
+# POLIZAS -----------------------------------------------------------------
     # Histograma EDAD ---------------------------------------------------------
         output$distPlot <- renderPlot({
-  
+          numh <- datos() %>% filter(SEXO=="M") %>% count(SEXO)
+          numm <- datos() %>% filter(SEXO=="F") %>% count(SEXO)
+          numhombres <- paste("Hombres",numh[2],sep=" - ")
+          nummujeres <- paste("Mujeres",numm[2],sep=" - ")
+          
+          texto <- ifelse(input$genero == "Ambos",nummujeres,ifelse(input$genero == "Mujeres",nummujeres,numhombres))
+                  
                   # Gráfica -----------------------------------------------------------------
                                ggplot(data=datos())+
                                    geom_histogram(aes(EDAD,fill=SEXO), color="black",bins=input$bins)+
@@ -216,9 +315,10 @@ resumenall <- function(matrix){
                                    ggtitle("Distribución de la edad")+
                                    theme(plot.title = element_text(size=35,vjust=0.8,face="bold"))+
                                    theme(axis.title.x = element_text(face="bold", vjust=-0.5, size=rel(1.5))) +
-                                   theme(axis.title.y = element_text(face="bold", vjust=1.5, size=rel(1.5))) 
-                        
-                                  
+                                   theme(axis.title.y = element_text(face="bold", vjust=1.5, size=rel(1.5)))+
+                                   scale_fill_discrete(name = "Sexo",  
+                                                        labels = c(texto,numhombres))
+                                            
                            })
     # PRIMAS ------------------------------------------------------------------
        output$Primas <- renderPlot({
@@ -252,23 +352,13 @@ resumenall <- function(matrix){
                
        })
 
-    # EDAD --------------------------------------------------------------------
+    # RESUMEN ESTADISTICO --------------------------------------------------------------------
         output$resumen <- renderTable({
      
       # TABLA -------------------------------------------------------------------
-          x <- as.data.frame(datos())
-          x <- x %>% 
-            select(-c("X","MOD_POL","STATUS_POL","ENTIDAD","FORM_VENTA","SUBT_SEG","P_E_DCP","S_F_ADMON",
-                      "VENCIMIENTO","RESCATE","DIVIDENDO","SEXO"))
-          table <- resumenall(x)
-          table
+          resumen()
   })
-        output$sexo <- renderText({
-          data <- as.data.frame(datos())
-          data <- data %>% select("SEXO")
-          a <- summary(data)
-          a
-    })
+
     # DATA --------------------------------------------------------------------
         output$data <- renderDataTable({
          
@@ -287,6 +377,93 @@ resumenall <- function(matrix){
           content = function(file) {
             write.csv(datos(), file)
     }    )
+        
+        output$downloadDataResumen <- downloadHandler(
+          filename = function() {
+            paste("estadistica-polizas", Sys.Date(), ".csv", sep="")
+          },
+          content = function(file) {
+            write.csv(resumen(), file)
+          }    )
+        
+        
+
+        
+# SINIESTROS --------------------------------------------------------------
+    # Histograma EDAD ---------------------------------------------------------
+        output$distPlot2 <- renderPlot({
+          
+          numh <- datos2() %>% filter(SEXO=="M") %>% count(SEXO)
+          numm <- datos2() %>% filter(SEXO=="F") %>% count(SEXO)
+          numhombres <- paste("Hombres",numh[2],sep=" - ")
+          nummujeres <- paste("Mujeres",numm[2],sep=" - ")
+
+          texto <- ifelse(input$genero2 == "Ambos",nummujeres,ifelse(input$genero2 == "Mujeres",nummujeres,numhombres))
+          # Gráfica -----------------------------------------------------------------
+          ggplot(data=datos2())+
+            geom_histogram(aes(EDAD,fill=SEXO), color="black",bins=input$bins)+
+            theme_minimal()+
+            xlab("")+
+            ylab("Cantidad")+
+            ggtitle("Distribución de la edad")+
+            theme(plot.title = element_text(size=35,vjust=0.8,face="bold"))+
+            theme(axis.title.x = element_text(face="bold", vjust=-0.5, size=rel(1.5))) +
+            theme(axis.title.y = element_text(face="bold", vjust=1.5, size=rel(1.5))) +
+            scale_fill_discrete(name = "Sexo",  
+                                labels = c(texto,numhombres))#ifelse(input$genero2 == "Ambos",c("1","2"),texto))
+          
+          
+        })
+    # PRIMAS ------------------------------------------------------------------
+        output$Siniestros <- renderPlot({
+          datos <-  datos2() %>% 
+            filter(Total_siniestro < 1.5*IQR(Total_siniestro))
+          # Gáfica ------------------------------------------------------------------
+          ggplot(data=as.data.frame(datos))+
+            geom_histogram(aes(as.numeric(Total_siniestro)),fill="steelblue", color="black",bins=input$bins)+
+            theme_minimal()+
+            xlab("")+
+            ylab("Cantidad")+
+            ggtitle("Distribución de los siniestros pagados")+
+            theme(plot.title = element_text(size=35,vjust=1,lineheight = 1.5,face="bold"))+
+            theme(axis.title.x = element_text(face="bold", vjust=-0.5, size=rel(1.5))) +
+            theme(axis.title.y = element_text(face="bold", vjust=1.5, size=rel(1.5))) 
+        })
+        
+    # RESUMEN ESTADISTICO--------------------------------------------------------------------
+        output$resumen2 <- renderTable({
+          
+          # TABLA -------------------------------------------------------------------
+          resumen2()
+        })
+   
+    # DATA --------------------------------------------------------------------
+        output$data2 <- renderDataTable({
+          
+          # Data Table --------------------------------------------------------------
+          datos <- as.data.frame(datos2())
+          datos
+          
+        })
+        
+    # DESCARGAR ---------------------------------------------------------------
+        
+        output$downloadData2 <- downloadHandler(
+          filename = function() {
+            paste("data-", Sys.Date(), ".csv", sep="")
+          },
+          content = function(file) {
+            write.csv(datos2(), file)
+          }    )
+        
+        output$downloadDataResumen2 <- downloadHandler(
+          filename = function() {
+            paste("estadistica-siniestros", Sys.Date(), ".csv", sep="")
+          },
+          content = function(file) {
+            write.csv(resumen2(), file)
+          }    )
+
     }
 
 # UI ----------------------------------------------------------------------
@@ -296,7 +473,7 @@ resumenall <- function(matrix){
                             fluidPage(
                               theme = bs_theme(version = 4, bootswatch = "minty"),
                                           # Application title
-                                  titlePanel("Distribucion de polizas."),
+                                  titlePanel("Distribución de pólizas."),
                                           
                                           sidebarLayout(
           # ENTRADAS ----------------------------------------------------------------
@@ -337,9 +514,7 @@ resumenall <- function(matrix){
                                                   
                                                   selectInput("entidad","Estado",c("Todas",entidad$Descripción),selected = "Todas", multiple = TRUE),
                                                   
-                                                  submitButton("Aplicar Cambios"),
-                                                
-                                                downloadButton("downloadData", "Descargar Datos"),
+                                                  submitButton("Aplicar Cambios")
                                                   
                                               ),
                                               
@@ -349,7 +524,7 @@ resumenall <- function(matrix){
                                                   tabsetPanel(
                # Gráficos ----------------------------------------------------------------
                                                     tabPanel("Gráficos", 
-                                                             textOutput("sexo"),
+                                       
                                                              plotOutput("distPlot"),
                                                              plotOutput("Primas"),
                                                              plotOutput("Sumas")
@@ -357,18 +532,99 @@ resumenall <- function(matrix){
 
                # Resumen Estadistico -----------------------------------------------------
                                                     tabPanel("Resumen Estadistico",
-                                                             tableOutput("resumen")
+                                                             tableOutput("resumen"),
+                                                             downloadButton("downloadDataResumen", "Descargar Resumen")
                                                              ), 
 
                # Datos -------------------------------------------------------------------
                                                     tabPanel("Datos",
-                                                             dataTableOutput("data")
+                                                             dataTableOutput("data"),
+                                                             downloadButton("downloadData", "Descargar Datos")
                                                              )) )
                                               ))),
 
       # Sienestros --------------------------------------------------------------
-                    tabPanel("Siniestros")
-            )
+                    tabPanel("Siniestros",
+                             fluidPage(
+                               theme = bs_theme(version = 4, bootswatch = "minty"),
+                               # Application title
+                               titlePanel("Distribución de pólizas."),
+                               
+                               sidebarLayout(
+                                 # ENTRADAS ----------------------------------------------------------------
+                                 sidebarPanel(  
+                                   
+                                   sliderInput("bins2",
+                                               "Numero de segmentos:",
+                                               min =1 ,
+                                               max = 50,
+                                               value = 30),
+                                   
+                                   sliderInput("precio2",
+                                               "Rango de la suma pagada",
+                                               min = 1,
+                                               max = 10000000,
+                                               value = c(100000,2000000),
+                                               dragRange = TRUE,
+                                               round=TRUE),
+                                   
+                                
+                                   radioButtons("genero2","Género",
+                                                choices = c("Ambos","Hombres","Mujeres")),
+                                   
+                                   selectInput("statuspago", "Estatus del pago",
+                                               choices = c("Todas",status_siniestro[,2]),
+                                               selected = "Todas"
+                                   ),
+                                   
+                                   selectInput("Beneficio2","Tipo de Beneficio",c("Todas",nom_beneficios),selected = "Todas",multiple=TRUE
+                                   ),
+                                   
+                                   selectInput("venta2", "Canal de venta",
+                                               choices = c("Todas",forma_venta[,2]),
+                                               selected = "Todas"
+                                   ),
+                                   selectInput("status2", "Estatus de póliza",
+                                               choices = c("Todas",status_poliza[,2]),
+                                               selected = "Todas"
+                                   ),
+                                   selectInput("tipo2", "Tipo de póliza",
+                                               choices = c("Todas",mod_pol[,2]),
+                                               selected = "Todas"
+                                   ),
+                                   
+                                   selectInput("entidad2","Estado",c("Todas",entidad$Descripción),selected = "Todas", multiple = TRUE),
+                                   
+                                   submitButton("Aplicar Cambios")
+                                   
+                                 ),
+                                 
+                                 
+                                 # SALIDAS -----------------------------------------------------------------
+                                 mainPanel(
+                                   tabsetPanel(
+                                     # Gráficos ----------------------------------------------------------------
+                                     tabPanel("Gráficos", 
+                                    
+                                              plotOutput("distPlot2"),
+                                              plotOutput("Siniestros")
+                                     ),
+                                     
+                                     # Resumen Estadistico -----------------------------------------------------
+                                     tabPanel("Resumen Estadistico",
+                                              tableOutput("resumen2"),
+                                              downloadButton("downloadDataResumen2", "Descargar Resumen")
+                                     ), 
+                                     
+                                     # Datos -------------------------------------------------------------------
+                                     tabPanel("Datos",
+                                              dataTableOutput("data2"),
+                                              downloadButton("downloadData2", "Descargar Datos")
+                                     )) )
+                               ))
+      ))
+      
+
 
 # APP ---------------------------------------------------------------------
 
