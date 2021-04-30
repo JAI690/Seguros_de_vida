@@ -37,6 +37,57 @@ polizas$suma <- sum(polizas$Doble_Indemnización_por_Muerte_Accidental,polizas$F
 
 polizas$SEXO <- as.factor(polizas$SEXO)   
 
+# Declaración de funciones ------------------------------------------------
+skewness=function(x) {
+  m3=mean((x-mean(x))^3)
+  skew=m3/(sd(x)^3)
+  skew}
+skew2=function(x) {
+  p75 = quantile(x,0.75)
+  p25 = quantile(x,0.25)
+  p50 =quantile(x,0.55)
+  num=(p75-p50)-(p50-p25)
+  den=p75-p25
+  skewinter=num/den
+  skewinter}
+kurtosis=function(x) {
+  m4=mean((x-mean(x))^4)
+  kurt=m4/(sd(x)^4)-3 
+  kurt}
+resumen <- function(dato,nombre){
+  sumario <- as.data.frame(cbind(
+    nombre,
+    min(dato, na.rm=TRUE),
+    quantile(dato,0.25, na.rm=TRUE),
+    median(dato, na.rm=TRUE),
+    mean(dato, na.rm=TRUE),
+    mean(dato,trim=5/100, na.rm=TRUE),
+    quantile(dato,0.75, na.rm=TRUE),
+    max(dato, na.rm=TRUE),
+    length(dato),
+    IQR(dato, na.rm=TRUE),
+    sd(dato),
+    var(dato),
+    skewness(dato),
+    kurtosis(dato)
+  ))
+  names(sumario) <- c("Variable","Mínimo","Quartil 1","Mediana","Media","Media restringida","Quartil 3","Máximo","Datos","Rango Intercuartilico",
+                      "Desviación Estándar","Varianza","Asimetría","Curtosis")
+  row.names(sumario) <- nombre
+  return(sumario)
+  
+}
+resumenall <- function(matrix){
+  res <- c()
+  res2 <- c()
+  for(i in 1:length(matrix)){
+    dato <- matrix[,i]
+    nombre <- names(matrix)[i]
+    res <- resumen(dato,nombre)
+    res2 <- rbind(res2,res)
+  }
+  res2
+}
 
 
 
@@ -202,19 +253,22 @@ polizas$SEXO <- as.factor(polizas$SEXO)
        })
 
     # EDAD --------------------------------------------------------------------
-        output$edad <- renderTable({
+        output$resumen <- renderTable({
      
       # TABLA -------------------------------------------------------------------
           x <- as.data.frame(datos())
           x <- x %>% 
             select(-c("X","MOD_POL","STATUS_POL","ENTIDAD","FORM_VENTA","SUBT_SEG","P_E_DCP","S_F_ADMON",
-                      "VENCIMIENTO","RESCATE","DIVIDENDO"))
-          table <- summary(x)
+                      "VENCIMIENTO","RESCATE","DIVIDENDO","SEXO"))
+          table <- resumenall(x)
           table
-                               
-                               
   })
- 
+        output$sexo <- renderText({
+          data <- as.data.frame(datos())
+          data <- data %>% select("SEXO")
+          a <- summary(data)
+          a
+    })
     # DATA --------------------------------------------------------------------
         output$data <- renderDataTable({
          
@@ -223,6 +277,7 @@ polizas$SEXO <- as.factor(polizas$SEXO)
             datos
           
                 })
+       
     # DESCARGAR ---------------------------------------------------------------
       
         output$downloadData <- downloadHandler(
@@ -294,6 +349,7 @@ polizas$SEXO <- as.factor(polizas$SEXO)
                                                   tabsetPanel(
                # Gráficos ----------------------------------------------------------------
                                                     tabPanel("Gráficos", 
+                                                             textOutput("sexo"),
                                                              plotOutput("distPlot"),
                                                              plotOutput("Primas"),
                                                              plotOutput("Sumas")
@@ -301,7 +357,7 @@ polizas$SEXO <- as.factor(polizas$SEXO)
 
                # Resumen Estadistico -----------------------------------------------------
                                                     tabPanel("Resumen Estadistico",
-                                                             tableOutput("edad")
+                                                             tableOutput("resumen")
                                                              ), 
 
                # Datos -------------------------------------------------------------------
