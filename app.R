@@ -13,7 +13,7 @@ forma_venta <- read.csv(file="Base de datos/FORM_VENTA.csv")
 variables <- read.csv(file="Base de datos/Descripcion de variables.csv")
 entidad <- read.csv(file = "Base de datos/ENTIDAD.csv")
 polizas <- read.csv(file="Base de datos/polizas_recodificadas.csv")
-sinisiestros <- read.csv(file="Base de datos/siniestros_recodificadas.csv")
+siniestros <- read.csv(file="Base de datos/siniestros_recodificadas.csv")
 mod_pol <- read.csv(file="Base de datos/MOD_POL.csv")
 status_poliza <- read.csv(file="Base de datos/STATUS_POL.csv")
 status_siniestro <- read.csv(file="Base de datos/STATUS_SIN.csv")
@@ -38,6 +38,8 @@ polizas$suma <- sum(polizas$Doble_Indemnización_por_Muerte_Accidental,polizas$F
 
 polizas$SEXO <- as.factor(polizas$SEXO)   
 siniestros$SEXO <- as.factor(siniestros$SEXO)
+siniestros <- siniestros %>% select(-X)
+
 
 # Declaración de funciones ------------------------------------------------
 skewness=function(x) {
@@ -208,11 +210,11 @@ resumenall <- function(matrix){
     datos2 <- reactive ({  
       # Filtros -----------------------------------------------------------------
       
-      a <- ifelse(input$venta == "Todas", "filter()" , "filter(FORM_VENTA == input$venta2)")
-      b <- ifelse(input$status == "Todas",  "filter()",  "filter(STATUS_POL == input$status2)")
+      a <- ifelse(input$venta2 == "Todas", "filter()" , "filter(FORM_VENTA == input$venta2)")
+      b <- ifelse(input$status2 == "Todas",  "filter()",  "filter(STATUS_POL == input$status2)")
       f <- ifelse(input$statuspago == "Todas",  "filter()",  "filter(STATUS_SIN == input$statuspago)")
-      c <-  ifelse(input$tipo == "Todas", "filter()", "filter(MOD_POL == input$tipo2)")
-      d <- ifelse(input$entidad == "Todas", "filter()", "filter(ENTIDAD == input$entidad2)")
+      c <-  ifelse(input$tipo2 == "Todas", "filter()", "filter(MOD_POL == input$tipo2)")
+      d <- ifelse(input$entidad2 == "Todas", "filter()", "filter(ENTIDAD == input$entidad2)")
       e <- ifelse(input$genero2 == "Ambos", "filter()", ifelse(input$genero2 == "Hombres",  "filter(SEXO == 'M')", "filter(SEXO == 'F')"))
       s <- c()     
       
@@ -249,14 +251,15 @@ resumenall <- function(matrix){
       x <- (eval(parse(text=filtros)))
       x <- (eval(parse(text=letrero)))
       x <- as.data.frame(x)
-      x <- as.data.frame(x)
+      
       
       
       graficar <- function(){
         for (i in 10:18) {
-          f <- paste("+x[,",i,"]", sep = "")
+          f <- paste("x[",i,"]+", sep = "")
           s <- paste(s,f,sep="")
         }
+         s <- paste(s,0,sep="")
         return(s)
       }
       
@@ -270,14 +273,14 @@ resumenall <- function(matrix){
         return(s)
       }
       
-      graficas <-  ifelse(input$Beneficio2=="Todas",graficar(),
+      graficas <-  ifelse(input$Beneficio2=="Todas",paste("x[,10]+x[,11]+x[,12]+x[,13]+x[,14]+x[,15]+x[,16]+x[,17]+x[,18]",sep=""),
                           graficar3(dim(as.array(input$Beneficio2))))
       
       sumprimas <- as.numeric(eval(parse(text=graficas)))
       sumprimas <- sumprimas
       x$Total_siniestro <- sumprimas
-
-
+      
+      
       x
     })
     resumen <- reactive({
